@@ -39,13 +39,19 @@ import bookingRouter from './routes/bookingsRoutes.js';
 // App Initialization
 // ------------------------------
 const app = express();
+app.set('trust proxy', 1);
 
 // Enable CORS for Next.js frontend
+const allowedOrigins = [
+  process.env.FRONTEND_URL?.replace(/\/$/, ''),
+  'http://localhost:5000',
+].filter(Boolean);
+
 app.use(
   cors({
-    origin: process.env.FRONTEND_URL ? [process.env.FRONTEND_URL, 'http://localhost:5000'] : 'http://localhost:5000',
+    origin: allowedOrigins,
     credentials: true,
-  })
+  }),
 );
 
 // Resolve __dirname in ES module environment

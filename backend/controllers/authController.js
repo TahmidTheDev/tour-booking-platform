@@ -16,14 +16,16 @@ const signToken = (id) =>
 const createSendToken = (user, statusCode, res) => {
   const token = signToken(user._id);
 
+  const isProd = process.env.NODE_ENV === 'production';
+
   const cookieOptions = {
     expires: new Date(
       Date.now() + process.env.JWT_COOKIE_EXPIRES_IN * 24 * 60 * 60 * 1000,
     ),
     httpOnly: true, // prevents access via client-side JS
+    secure: isProd,
+    sameSite: isProd ? 'none' : 'lax',
   };
-
-  if (process.env.NODE_ENV === 'production') cookieOptions.secure = true;
 
   res.cookie('jwt', token, cookieOptions);
 
@@ -66,9 +68,13 @@ export const signUp = catchAsync(async (req, res, next) => {
 });
 
 export const logout = (req, res) => {
+  const isProd = process.env.NODE_ENV === 'production';
+
   res.cookie('jwt', 'loggedout', {
     expires: new Date(Date.now() + 10 * 1000),
     httpOnly: true,
+    secure: isProd,
+    sameSite: isProd ? 'none' : 'lax',
   });
   res.status(200).json({ status: 'success' });
 };
@@ -225,7 +231,7 @@ export const forgotPassword = catchAsync(async (req, res, next) => {
   const resetToken = user.createPasswordResetToken();
   await user.save({ validateBeforeSave: false });
 
-  const resetURL = process.env.FRONTEND_URL 
+  const resetURL = process.env.FRONTEND_URL
     ? `${process.env.FRONTEND_URL}/reset-password/${resetToken}`
     : `http://localhost:5000/reset-password/${resetToken}`;
 

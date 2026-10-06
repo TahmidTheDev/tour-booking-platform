@@ -1,6 +1,6 @@
-import { create } from 'zustand';
-import { User } from '@/types';
-import { authService } from '@/services/auth.service';
+import { create } from "zustand";
+import { User } from "@/types";
+import { authService } from "@/services/auth.service";
 
 interface AuthState {
   user: User | null;
@@ -12,28 +12,55 @@ interface AuthState {
   logout: () => Promise<void>;
 }
 
+const saveToken = (token?: string) => {
+  if (token) localStorage.setItem("token", token);
+};
+
 export const useAuthStore = create<AuthState>((set) => ({
   user: null,
   isAuthenticated: false,
   isLoading: true,
+
   checkAuthStatus: async () => {
+    // No saved token, so no point calling the API
+    if (!localStorage.getItem("token")) {
+      set({ user: null, isAuthenticated: false, isLoading: false });
+      return;
+    }
     try {
       const data = await authService.getMe();
-      set({ user: data.data.data, isAuthenticated: true, isLoading: false }); // Based on backend getMe response format
-    } catch (error) {
-      set({ user: null, isAuthenticated: false, isLoading: false });
+      set({ user: data.data.data, isAuthenticated: true, isLoading: false });
+    } catch (error: any) {
+      if (error.status === 401) {
+        // Token is really invalid/expired
+        localStorage.removeItem("token");
+        set({ user: null, isAuthenticated: false, isLoading: false });
+      } else {
+        // Network error, Render cold start, 500: keep the session
+        set({ isLoading: false });
+      }
     }
   },
+
   login: async (data: any) => {
     const res = await authService.login(data);
-    set({ user: res.data.user, isAuthenticated: true });
+    saveToken(res.token);
+    set({ user: res.data.user, isAuthenticated: true, isLoading: false });
   },
+
   signup: async (data: any) => {
     const res = await authService.signup(data);
-    set({ user: res.data.user, isAuthenticated: true });
+    saveToken(res.token);
+    set({ user: res.data.user, isAuthenticated: true, isLoading: false });
   },
+
   logout: async () => {
-    await authService.logout();
-    set({ user: null, isAuthenticated: false });
+    try {
+      await authService.logout();
+    } finally {
+      // Always clear locally, even if the API call fails
+      localStorage.removeItem("token");
+      set({ user: null, isAuthenticated: false });
+    }
   },
 }));
